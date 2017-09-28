@@ -1,0 +1,118 @@
+#!/bin/bash
+
+#=================================================
+# GENERIC START
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
+
+source /usr/share/yunohost/helpers
+
+#=================================================
+# MANAGE SCRIPT FAILURE
+#=================================================
+
+# Exit if an error occurs during the execution of the script
+ynh_abort_if_errors
+
+#=================================================
+# RETRIEVE ARGUMENTS FROM THE MANIFEST
+#=================================================
+
+domain=$YNH_APP_ARG_DOMAIN
+room_domain=$YNH_APP_ARG_ROOM_DOMAIN
+path_url=/
+
+app=$YNH_APP_INSTANCE_NAME
+
+#=================================================
+# CHECK IF THE APP CAN BE INSTALLED WITH THESE ARGS
+#=================================================
+
+# Normalize the url path syntax
+path_url=$(ynh_normalize_url_path $path_url)
+
+# Check web path availability
+ynh_webpath_available $domain $path_url
+# Register (book) web path
+ynh_webpath_register $app $domain $path_url
+
+#=================================================
+# STORE SETTINGS FROM MANIFEST
+#=================================================
+
+ynh_app_setting_set $app domain $domain
+ynh_app_setting_set $app path $path_url
+ynh_app_setting_set $app room_domain $room_domain
+
+#=================================================
+# STANDARD MODIFICATIONS
+#=================================================
+# NGINX CONFIGURATION
+#=================================================
+
+# Create a dedicated nginx config
+ynh_add_nginx_config
+
+#=================================================
+# SPECIFIC SETUP
+#=================================================
+# CONFIGURE METRONOME
+#=================================================
+
+echo "
+
+-- Discovery items
+disco_items = {
+    { \"$room_domain\" }
+};
+
+---Set up a MUC (multi-user chat) room server
+Component \"$room_domain\" \"muc\"
+    name = \"YunoHost Chatrooms\"
+
+    modules_enabled = {
+        --\"muc_limits\";
+        \"muc_log\";
+        \"muc_log_http\";
+        \"pastebin\";
+    }
+
+    pastebin_url = \"http://$domain/paste/\"
+    pastebin_path = \"/paste/\"
+    pastebin_expire_after = 0
+    pastebin_trigger = \"!paste\"" \
+	>> "/etc/metronome/conf.d/$domain.cfg.lua"
+
+#=================================================
+# RELOAD METRONOME
+#=================================================
+
+systemctl reload metronome
+
+#=================================================
+# MODIFY A CONFIG FILE
+#=================================================
+
+# ynh_replace_string "match_string" "replace_string" "$final_path/CONFIG_FILE"
+
+#=================================================
+# STORE THE CHECKSUM OF THE CONFIG FILE
+#=================================================
+
+# Calculate and store the config file checksum into the app settings
+# ynh_store_file_checksum "$final_path/CONFIG_FILE"
+
+#=================================================
+# GENERIC FINALIZATION
+#=================================================
+# SETUP SSOWAT
+#=================================================
+
+ynh_app_setting_set $app unprotected_uris "/"
+
+#=================================================
+# RELOAD NGINX
+#=================================================
+
+systemctl reload nginx
