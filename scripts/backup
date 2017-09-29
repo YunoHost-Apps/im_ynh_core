@@ -6,12 +6,6 @@
 # IMPORT GENERIC HELPERS
 #=================================================
 
-if [ ! -e _common.sh ]; then
-	# Get the _common.sh file if it's not in the current directory
-	cp ../settings/scripts/_common.sh ./_common.sh
-	chmod a+rx _common.sh
-fi
-source _common.sh
 source /usr/share/yunohost/helpers
 
 #=================================================
@@ -27,18 +21,11 @@ ynh_abort_if_errors
 
 app=$YNH_APP_INSTANCE_NAME
 
-final_path=$(ynh_app_setting_get $app final_path)
 domain=$(ynh_app_setting_get $app domain)
-db_name=$(ynh_app_setting_get $app db_name)
+room_domain=$(ynh_app_setting_get $app room_domain)
 
 #=================================================
 # STANDARD BACKUP STEPS
-#=================================================
-# BACKUP THE APP MAIN DIR
-#=================================================
-
-ynh_backup "$final_path"
-
 #=================================================
 # BACKUP THE NGINX CONFIGURATION
 #=================================================
@@ -46,34 +33,20 @@ ynh_backup "$final_path"
 ynh_backup "/etc/nginx/conf.d/$domain.d/$app.conf"
 
 #=================================================
-# BACKUP THE PHP-FPM CONFIGURATION
-#=================================================
-
-ynh_backup "/etc/php5/fpm/pool.d/$app.conf"
-ynh_backup "/etc/php5/fpm/conf.d/20-$app.ini"
-
-#=================================================
-# BACKUP THE MYSQL DATABASE
-#=================================================
-
-ynh_mysql_dump_db "$db_name" > db.sql
-
-#=================================================
 # SPECIFIC BACKUP
 #=================================================
-# BACKUP LOGROTATE
+# BACKUP THE METRONOME CONFIG
 #=================================================
 
-ynh_backup "/etc/logrotate.d/$app"
+ynh_backup "/etc/metronome/conf.d/logging_$room_domain.cfg.lua"
 
 #=================================================
-# BACKUP SYSTEMD
+# BACKUP THE METRONOME DATAS
 #=================================================
 
-ynh_backup "/etc/systemd/system/$app.service"
+# Convert the domain of the chatroom like the name of the directory for metronome.
+metronome_domain_dir=${room_domain//-/%2d}
+metronome_domain_dir=${metronome_domain_dir//./%2e}
+metronome_domain_dir=${metronome_domain_dir//_/%5f}
 
-#=================================================
-# BACKUP THE CRON FILE
-#=================================================
-
-ynh_backup "/etc/cron.d/$app"
+ynh_backup "/var/lib/metronome/$metronome_domain_dir"

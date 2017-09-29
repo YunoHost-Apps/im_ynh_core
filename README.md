@@ -1,22 +1,8 @@
-# Example app for YunoHost
+# XMPP logging for YunoHost
 
 - [Yunohost project](https://yunohost.org)
-- [Exemple app website](https://example.com)
 
-Description of the app.
-
-## Usage
-- Copy this app before work on it.
-- Edit `conf/nginx.conf` file to match application prerequisites.
-- Edit `manifest.json` with application specific information.
-- Edit the `install`, `upgrade`, `remove`, `backup`, and `restore` scripts.
-- Add a `LICENSE` file for the package.
-- Edit `README.md`.
-
-**More information on the documentation page:**    
-https://yunohost.org/packaging_apps
+Logging of the chat rooms with access to the html interface to read them.
 
 **Upgrade this package:**  
-`sudo yunohost app upgrade --verbose example -u https://github.com/YunoHost-Apps/example_ynh`
-
-**Multi-user:** Yes/No. How about the ldap and HTTP auth support.
+`sudo yunohost app upgrade --verbose xmpp_logging -u https://github.com/YunoHost-Apps/im_ynh_core`

@@ -51,6 +51,7 @@ ynh_app_setting_set $app room_domain $room_domain
 # NGINX CONFIGURATION
 #=================================================
 
+ynh_replace_string "__ROOM_DOMAIN__" "$room_domain" "../conf/nginx.conf"
 # Create a dedicated nginx config
 ynh_add_nginx_config
 
@@ -60,6 +61,7 @@ ynh_add_nginx_config
 # CONFIGURE METRONOME
 #=================================================
 
+# Add the muc_log module for logging
 echo "
 
 -- Discovery items
@@ -78,30 +80,93 @@ Component \"$room_domain\" \"muc\"
         \"pastebin\";
     }
 
+    muc_event_rate = 0.5
+    muc_burst_factor = 10
+
+    muc_log_http_config = {
+        url_base = \"logs\";
+        theme = \"metronome\";
+    }
+
     pastebin_url = \"http://$domain/paste/\"
     pastebin_path = \"/paste/\"
     pastebin_expire_after = 0
     pastebin_trigger = \"!paste\"" \
-	>> "/etc/metronome/conf.d/$domain.cfg.lua"
+	>> "/etc/metronome/conf.d/logging_$room_domain.cfg.lua"
+
+chmod 640 "/etc/metronome/conf.d/logging_$room_domain.cfg.lua"
+chown metronome: "/etc/metronome/conf.d/logging_$room_domain.cfg.lua"
+
+# Convert the domain of the chatroom like the name of the directory for metronome.
+metronome_domain_dir=${room_domain//-/%2d}
+metronome_domain_dir=${metronome_domain_dir//./%2e}
+metronome_domain_dir=${metronome_domain_dir//_/%5f}
+
+# Create the directory for the rooms configs
+mkdir -p "/var/lib/metronome/$metronome_domain_dir"
+
+# Set the rooms as persistent
+# echo "return {
+#         [\"apps@$room_domain\"] = true;
+#         [\"dev@$room_domain\"] = true;
+#         [\"support@$room_domain\"] = true;
+# };" >> "/var/lib/metronome/$metronome_domain_dir/persistent.dat"
+
+# Configure each room
+# conf_room () {
+# 	echo "return {
+#         [\"jid\"] = \"$1@$room_domain\";
+#         [\"_data\"] = {
+#                 [\"history_length\"] = 20;
+#                 [\"logging\"] = true;
+#                 [\"persistent\"] = true;
+#                 [\"whois\"] = \"moderators\";
+#         };
+#         ["_affiliations"] = {};
+# };" >> "/var/lib/metronome/$metronome_domain_dir/config/$1.dat"
+# }
+
+# conf_room apps
+# conf_room dev
+# conf_room support
+
+# Set correct permissions on metronome files
+chown metronome: -R "/var/lib/metronome/$metronome_domain_dir"
+# chmod 640 "/var/lib/metronome/$metronome_domain_dir/persistent.dat"
+# chmod 750 "/var/lib/metronome/$metronome_domain_dir/config"
+# chmod 640 /var/lib/metronome/$metronome_domain_dir/config/{apps.dat,dev.dat,support.dat}
+
+# For the moment, this test to force the config of each rooms doesn't work.
+# Metronome seems to be not so happy with that...
+# So, we have to configure each room manually.
+echo "To enable the logging in $domain, each room have to be configured." >&2
+echo "You can configure a room by entre '/config' in a room." >&2
+echo "Then, you have to set the room as persistent and enable the logging." >&2
+echo "--" >&2
+echo "You can also set this config in the file of the room." >&2
+echo "The config files are at '/var/lib/metronome/$metronome_domain_dir/config/'" >&2
+echo "Add '[\"logging\"] = true;' and '[\"persistent\"] = true;' in the '_data' array." >&2
+echo "Then restart metronome." >&2
 
 #=================================================
-# RELOAD METRONOME
+# ADD THE DOMAIN /ETC/HOSTS
 #=================================================
 
-systemctl reload metronome
+echo "
+127.0.0.1	$room_domain" >> /etc/hosts
 
 #=================================================
-# MODIFY A CONFIG FILE
+# RESTART METRONOME
 #=================================================
 
-# ynh_replace_string "match_string" "replace_string" "$final_path/CONFIG_FILE"
+systemctl restart metronome
 
 #=================================================
 # STORE THE CHECKSUM OF THE CONFIG FILE
 #=================================================
 
 # Calculate and store the config file checksum into the app settings
-# ynh_store_file_checksum "$final_path/CONFIG_FILE"
+ynh_store_file_checksum "/etc/metronome/conf.d/logging_$room_domain.cfg.lua"
 
 #=================================================
 # GENERIC FINALIZATION
